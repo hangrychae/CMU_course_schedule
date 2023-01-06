@@ -1,0 +1,234 @@
+---
+title: "393 project"
+author: "Chae"
+date: "11/19/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(writexl)
+library(openxlsx)
+#library(stringr)
+```
+
+
+```{r}
+file <- read_excel("/Users/chae/Desktop/CMU/FALL 2021/21393/project/S22_Registrar_Schedule_Courses_1nov21.xlsx")
+head(file)
+# excel has to be sorted in the following priority: CRSE# -> Sect -> DAY
+```
+
+
+```{r}
+
+lecture <- subset(file, grepl("[^A-Za-z]", file$Sect))
+section_reci <- subset(file, grepl("\\D", file$Sect))
+```
+
+```{r}
+i = 2
+class = str_pad(lecture[[1,"CRSE#"]], 5, pad = "0")
+section = lecture[[1,"Sect"]]
+day = lecture[[1,"DAY"]]
+new_nrow = nrow(lecture)
+while (i <= nrow(lecture)) {
+  
+  if (i <= new_nrow) {
+
+    if (lecture[[i,"CRSE#"]] == class && lecture[[i,"Sect"]] == section && lecture[[i,"DAY"]] == day)  {
+      # same class; multiple professors teaching same class
+      if (!is.na(lecture[i-1,]$`INSTRUCTOR(S)`) && !is.na(lecture[i,]$`INSTRUCTOR(S)`) && !grepl(lecture[i,]$`INSTRUCTOR(S)`, lecture[i-1,]$`INSTRUCTOR(S)`)) {
+        lecture[i-1,]$`Andrew ID` = paste(lecture[[i-1, "Andrew ID"]], lecture[[i, "Andrew ID"]], sep=",")
+        lecture[i-1,]$`INSTRUCTOR(S)` = paste(lecture[[i-1, "INSTRUCTOR(S)"]], lecture[[i, "INSTRUCTOR(S)"]], sep=",")
+      }
+      lecture <- lecture[-c(i),] # removing duplicate 
+      i = i - 1
+    }
+  class = str_pad(lecture[[i,"CRSE#"]], 5, pad = "0")
+  section = lecture[[i,"Sect"]]
+  day = lecture[[i,"DAY"]]
+  new_nrow = nrow(lecture)
+  i = i + 1
+  }
+}
+  
+
+```
+
+
+
+```{r}
+i = 2
+class = str_pad(section_reci[[1,"CRSE#"]], 5, pad = "0")
+section = section_reci[[1,"Sect"]]
+day = section_reci[[1,"DAY"]]
+new_nrow = nrow(section_reci)
+while (i <= nrow(section_reci)) {
+  
+  if (i <= new_nrow) {
+
+    if (section_reci[[i,"CRSE#"]] == class && section_reci[[i,"Sect"]] == section && section_reci[[i,"DAY"]] == day)  {
+      # same class; multiple professors teaching same class
+      if (!is.na(section_reci[i-1,]$`INSTRUCTOR(S)`) && !is.na(section_reci[i,]$`INSTRUCTOR(S)`) && !grepl(section_reci[i,]$`INSTRUCTOR(S)`, section_reci[i-1,]$`INSTRUCTOR(S)`)) {
+        section_reci[i-1,]$`Andrew ID` = paste(section_reci[[i-1, "Andrew ID"]], section_reci[[i, "Andrew ID"]], sep=",")
+        section_reci[i-1,]$`INSTRUCTOR(S)` = paste(section_reci[[i-1, "INSTRUCTOR(S)"]], section_reci[[i, "INSTRUCTOR(S)"]], sep=",")
+      }
+      section_reci <- section_reci[-c(i),] # removing duplicate 
+      
+      i = i - 1
+    }
+  class = str_pad(section_reci[[i,"CRSE#"]], 5, pad = "0")
+  section = section_reci[[i,"Sect"]]
+  day = section_reci[[i,"DAY"]]
+  new_nrow = nrow(section_reci)
+  i = i + 1
+  }
+}
+  
+```
+
+
+
+```{r}
+lecture$Duration <- difftime(strptime(lecture$`End Time`, format = "%H:%M"), strptime(lecture$`Begin Time`,format = "%H:%M"))
+
+i=1
+while (i <= nrow(lecture)) {
+  if (as.numeric(lecture[i,]$Duration) < 0) {
+    lecture[i,]$Duration <- 720 + lecture[i,]$Duration
+  }
+  i = i+1
+}
+
+
+lecture_full <- lecture[which(lecture$Mini == "N"),]
+lecture_full_M <- lecture_full[which(grepl("M", lecture_full$DAY) == "TRUE"),]
+lecture_full_T <- lecture_full[which(grepl("T", lecture_full$DAY) == "TRUE"),]
+lecture_full_W <- lecture_full[which(grepl("W", lecture_full$DAY) == "TRUE"),]
+lecture_full_R <- lecture_full[which(grepl("R", lecture_full$DAY) == "TRUE"),]
+lecture_full_F <- lecture_full[which(grepl("F", lecture_full$DAY) == "TRUE"),]
+
+lecture_mini <- lecture[which(lecture$Mini == "Y"),]
+lecture_mini_M <- lecture_mini[which(grepl("M", lecture_mini$DAY) == "TRUE"),]
+lecture_mini_T <- lecture_mini[which(grepl("T", lecture_mini$DAY) == "TRUE"),]
+lecture_mini_W <- lecture_mini[which(grepl("W", lecture_mini$DAY) == "TRUE"),]
+lecture_mini_R <- lecture_mini[which(grepl("R", lecture_mini$DAY) == "TRUE"),]
+lecture_mini_F <- lecture_mini[which(grepl("F", lecture_mini$DAY) == "TRUE"),]
+
+
+# these classes can overlap (first half and second half)
+#first half of the semester
+lecture_mini_M_first <- lecture_mini_M[which(grepl("3", lecture_mini_M$Sect) == "TRUE"),]
+lecture_mini_T_first <- lecture_mini_T[which(grepl("3", lecture_mini_T$Sect) == "TRUE"),]
+lecture_mini_W_first <- lecture_mini_W[which(grepl("3", lecture_mini_W$Sect) == "TRUE"),]
+lecture_mini_R_first <- lecture_mini_R[which(grepl("3", lecture_mini_R$Sect) == "TRUE"),]
+lecture_mini_F_first <- lecture_mini_F[which(grepl("3", lecture_mini_F$Sect) == "TRUE"),]
+
+#second half of the semester
+lecture_mini_M_second <- lecture_mini_M[which(grepl("4", lecture_mini_M$Sect) == "TRUE"),]
+lecture_mini_T_second <- lecture_mini_T[which(grepl("4", lecture_mini_T$Sect) == "TRUE"),]
+lecture_mini_W_second <- lecture_mini_W[which(grepl("4", lecture_mini_W$Sect) == "TRUE"),]
+lecture_mini_R_second <- lecture_mini_R[which(grepl("4", lecture_mini_R$Sect) == "TRUE"),]
+lecture_mini_F_second <- lecture_mini_F[which(grepl("4", lecture_mini_F$Sect) == "TRUE"),]
+
+```
+
+
+
+
+```{r}
+section_reci$Duration <- difftime(strptime(section_reci$`End Time`, format = "%H:%M"), strptime(section_reci$`Begin Time`,format = "%H:%M"))
+
+i=1
+while (i <= nrow(section_reci)) {
+  if (as.numeric(section_reci[i,]$Duration) < 0) {
+    section_reci[i,]$Duration <- 720 + section_reci[i,]$Duration
+  }
+  i = i+1
+}
+
+
+section_reci_full <- section_reci[which(section_reci$Mini == "N"),]
+section_reci_full_M <- section_reci_full[which(grepl("M", section_reci_full$DAY) == "TRUE"),]
+section_reci_full_T <- section_reci_full[which(grepl("T", section_reci_full$DAY) == "TRUE"),]
+section_reci_full_W <- section_reci_full[which(grepl("W", section_reci_full$DAY) == "TRUE"),]
+section_reci_full_R <- section_reci_full[which(grepl("R", section_reci_full$DAY) == "TRUE"),]
+section_reci_full_F <- section_reci_full[which(grepl("F", section_reci_full$DAY) == "TRUE"),]
+
+section_reci_mini <- section_reci[which(section_reci$Mini == "Y"),]
+section_reci_mini_M <- section_reci_mini[which(grepl("M", section_reci_mini$DAY) == "TRUE"),]
+section_reci_mini_T <- section_reci_mini[which(grepl("T", section_reci_mini$DAY) == "TRUE"),]
+section_reci_mini_W <- section_reci_mini[which(grepl("W", section_reci_mini$DAY) == "TRUE"),]
+section_reci_mini_R <- section_reci_mini[which(grepl("R", section_reci_mini$DAY) == "TRUE"),]
+section_reci_mini_F <- section_reci_mini[which(grepl("F", section_reci_mini$DAY) == "TRUE"),]
+
+
+# these classes can overlap (first half and second half)
+#first half of the semester
+section_reci_mini_M_first <- section_reci_mini_M[which(grepl("3", section_reci_mini_M$Sect) == "TRUE"),]
+section_reci_mini_T_first <- section_reci_mini_T[which(grepl("3", section_reci_mini_T$Sect) == "TRUE"),]
+section_reci_mini_W_first <- section_reci_mini_W[which(grepl("3", section_reci_mini_W$Sect) == "TRUE"),]
+section_reci_mini_R_first <- section_reci_mini_R[which(grepl("3", section_reci_mini_R$Sect) == "TRUE"),]
+section_reci_mini_F_first <- section_reci_mini_F[which(grepl("3", section_reci_mini_F$Sect) == "TRUE"),]
+
+#second half of the semester
+section_reci_mini_M_second <- section_reci_mini_M[which(grepl("4", section_reci_mini_M$Sect) == "TRUE"),]
+section_reci_mini_T_second <- section_reci_mini_T[which(grepl("4", section_reci_mini_T$Sect) == "TRUE"),]
+section_reci_mini_W_second <- section_reci_mini_W[which(grepl("4", section_reci_mini_W$Sect) == "TRUE"),]
+section_reci_mini_R_second <- section_reci_mini_R[which(grepl("4", section_reci_mini_R$Sect) == "TRUE"),]
+section_reci_mini_F_second <- section_reci_mini_F[which(grepl("4", section_reci_mini_F$Sect) == "TRUE"),]
+```
+
+```{r}
+m_full <- rbind(lecture_full_M, section_reci_full_M)
+m_mini_first <- rbind(lecture_mini_M_first, section_reci_mini_M_first)
+m_mini_second <- rbind(lecture_mini_M_second, section_reci_mini_M_second)
+
+t_full <- rbind(lecture_full_T, section_reci_full_T)
+t_mini_first <- rbind(lecture_mini_T_first, section_reci_mini_T_first)
+t_mini_second <- rbind(lecture_mini_T_second, section_reci_mini_T_second)
+
+w_full <- rbind(lecture_full_W, section_reci_full_W)
+w_mini_first <- rbind(lecture_mini_W_first, section_reci_mini_W_first)
+w_mini_second <- rbind(lecture_mini_W_second, section_reci_mini_W_second)
+
+r_full <- rbind(lecture_full_R, section_reci_full_R)
+r_mini_first <- rbind(lecture_mini_R_first, section_reci_mini_R_first)
+r_mini_second <- rbind(lecture_mini_R_second, section_reci_mini_R_second)
+
+f_full <- rbind(lecture_full_F, section_reci_full_F)
+f_mini_first <- rbind(lecture_mini_F_first, section_reci_mini_F_first)
+f_mini_second <- rbind(lecture_mini_F_second, section_reci_mini_F_second)
+
+```
+
+
+
+```{r}
+
+full_alldays <- list("Full_Mon"=m_full, "Full_Tue"=t_full, "Full_Wed"=w_full, "Full_Thur"=r_full, "Full_Fri"=f_full)
+
+mini_alldays <- list("fh_Mon"=m_mini_first, "sh_Mon"=m_mini_second, "fh_Tue"=t_mini_first, "sh_Tue"=t_mini_second, "fh_Wed"=w_mini_first, "sh_Wed"=w_mini_second, "fh_Thur"=r_mini_first, "sh_Thur"=r_mini_second, "fh_Fri"=f_mini_first, "sh_Fri"=f_mini_second)
+
+write.xlsx(full_alldays, file = "/Users/chae/Desktop/CMU/FALL 2021/21393/project/output_full.xlsx")
+write.xlsx(mini_alldays, file = "/Users/chae/Desktop/CMU/FALL 2021/21393/project/output_mini.xlsx")
+```
+
+
+
+```{r not used}
+m_full
+a = m_full[order(m_full$`TITLE`),]
+a
+b = c(paste(a[12,]$'INSTRUCTOR(S)', a[13,]$'INSTRUCTOR(S)', sep=","))
+unique(strsplit(b, ",|\\n")[[1]])
+```
